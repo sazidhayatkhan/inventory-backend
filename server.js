@@ -8,6 +8,7 @@ const connectDB = require('./config/db');
 // Route files
 const productRoutes = require('./routes/productRoutes');
 const categoryRoutes = require('./routes/categoriesRoutes');
+const faqRoutes = require('./routes/faqRoutes')
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 // API Routes
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/faqs', faqRoutes);
 
 
 // Start server
