@@ -10,6 +10,7 @@ const faqRoutes = require('./routes/faqRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const sctockRoutes = require('./routes/stockRoutes')
 const salesOrderRoutes = require('./routes/salesOrderRoutes')
+const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes')
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use('/api/supplier',supplierRoutes)
 app.use('/api/faqs', faqRoutes);
 app.use('/api/stock-movement',sctockRoutes);
 app.use('/api/sales-order',salesOrderRoutes);
+app.use('/api/purchase-order',purchaseOrderRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
