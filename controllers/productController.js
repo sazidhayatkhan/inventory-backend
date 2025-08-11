@@ -1,26 +1,31 @@
-const Product = require('../models/Product');
-const Category = require('../models/Category');
-const Joi = require('joi');
+const Product = require("../models/Product");
+const Category = require("../models/Category");
+const Supplier = require("../models/Supplier");
+const Joi = require("joi");
 
 // Async handler wrapper
-const asyncHandler = fn => (req, res, next) =>
+const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
 // Joi validation schema for product creation & update
 const productValidationSchema = Joi.object({
   name: Joi.string().required(),
   category: Joi.string().hex().length(24).required(),
+  supplier: Joi.string().hex().length(24).required(),
   quantity: Joi.number().integer().min(0).required(),
-  description: Joi.string().allow('').optional()
+  description: Joi.string().allow("").optional(),
 });
 
 // GET all products with pagination and optional search
 const getAllProducts = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, search } = req.query;
-  const filter = search ? { name: new RegExp(search, 'i') } : {};
+  const filter = search ? { name: new RegExp(search, "i") } : {};
 
   const products = await Product.find(filter)
-    .populate('category', 'name description')
+    .populate([
+      { path: "category", select: "name description" },
+      { path: "supplier", select: "name" },
+    ])
     .skip((page - 1) * limit)
     .limit(Number(limit))
     .lean();
@@ -36,14 +41,16 @@ const getAllProducts = asyncHandler(async (req, res) => {
   res.json(response);
 });
 
-
 // GET one product by ID with category populated
 const getProductById = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id)
-    .populate('category', 'name description')
+    .populate([
+      { path: "category", select: "name description" },
+      { path: "supplier", select: "name" },
+    ])
     .lean();
 
-  if (!product) return res.status(404).json({ message: 'Product not found' });
+  if (!product) return res.status(404).json({ message: "Product not found" });
 
   res.json(product);
 });
@@ -56,7 +63,12 @@ const createProduct = asyncHandler(async (req, res) => {
   // Check if category exists
   const categoryExists = await Category.findById(req.body.category).lean();
   if (!categoryExists) {
-    return res.status(400).json({ message: 'Invalid category ID' });
+    return res.status(400).json({ message: "Invalid category ID" });
+  }
+  // Check if supplier exists
+  const supplierExists = await Supplier.findById(req.body.supplier).lean();
+  if (!supplierExists) {
+    return res.status(400).json({ message: "Invalid supplier ID" });
   }
 
   const product = new Product(req.body);
@@ -72,7 +84,11 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   const categoryExists = await Category.findById(req.body.category).lean();
   if (!categoryExists) {
-    return res.status(400).json({ message: 'Invalid category ID' });
+    return res.status(400).json({ message: "Invalid category ID" });
+  }
+  const supplierExists = await Supplier.findById(req.body.supplier).lean();
+  if (!supplierExists) {
+    return res.status(400).json({ message: "Invalid supplier ID" });
   }
 
   const updatedProduct = await Product.findByIdAndUpdate(
@@ -81,7 +97,8 @@ const updateProduct = asyncHandler(async (req, res) => {
     { new: true, runValidators: true }
   ).lean();
 
-  if (!updatedProduct) return res.status(404).json({ message: 'Product not found' });
+  if (!updatedProduct)
+    return res.status(404).json({ message: "Product not found" });
 
   res.json(updatedProduct);
 });
@@ -90,9 +107,10 @@ const updateProduct = asyncHandler(async (req, res) => {
 const deleteProduct = asyncHandler(async (req, res) => {
   const deletedProduct = await Product.findByIdAndDelete(req.params.id).lean();
 
-  if (!deletedProduct) return res.status(404).json({ message: 'Product not found' });
+  if (!deletedProduct)
+    return res.status(404).json({ message: "Product not found" });
 
-  res.json({ message: 'Product deleted' });
+  res.json({ message: "Product deleted" });
 });
 
 module.exports = {
@@ -100,5 +118,5 @@ module.exports = {
   getProductById,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
 };
