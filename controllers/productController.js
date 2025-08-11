@@ -1,83 +1,99 @@
-const Product = require('../models/Product')
+const Product = require('../models/Product');
 const Category = require('../models/Category');
+const Joi = require('joi');
 
-// GET all products (with category populated)
-const getAllProducts = async (req, res) => {
-  try {
-    const products = await Product.find().populate('category', 'name description');
-    res.json(products);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+// Async handler wrapper
+const asyncHandler = fn => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
 
-// GET one product by ID
-const getProductById = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id).populate('category', 'name description');
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json(product);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+// Joi validation schema for product creation & update
+const productValidationSchema = Joi.object({
+  name: Joi.string().required(),
+  category: Joi.string().hex().length(24).required(),
+  quantity: Joi.number().integer().min(0).required(),
+  description: Joi.string().allow('').optional()
+});
+
+// GET all products with pagination and optional search
+const getAllProducts = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, search } = req.query;
+  const filter = search ? { name: new RegExp(search, 'i') } : {};
+
+  const products = await Product.find(filter)
+    .populate('category', 'name description')
+    .skip((page - 1) * limit)
+    .limit(Number(limit))
+    .lean();
+
+  const total = await Product.countDocuments(filter);
+
+  const response = {
+    total,
+    page: Number(page),
+    products,
+  };
+
+  res.json(response);
+});
+
+
+// GET one product by ID with category populated
+const getProductById = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id)
+    .populate('category', 'name description')
+    .lean();
+
+  if (!product) return res.status(404).json({ message: 'Product not found' });
+
+  res.json(product);
+});
 
 // POST create product
-const createProduct = async (req, res) => {
-  const { name, category, quantity, description } = req.body;
+const createProduct = asyncHandler(async (req, res) => {
+  const { error } = productValidationSchema.validate(req.body);
+  if (error) return res.status(400).json({ message: error.details[0].message });
 
-  try {
-    if (category) {
-      const categoryExists = await Category.findById(category);
-      if (!categoryExists) {
-        return res.status(400).json({ message: 'Invalid category ID' });
-      }
-    }
-
-    const product = new Product({ name, category, quantity, description });
-    const savedProduct = await product.save();
-    res.status(201).json(savedProduct);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+  // Check if category exists
+  const categoryExists = await Category.findById(req.body.category).lean();
+  if (!categoryExists) {
+    return res.status(400).json({ message: 'Invalid category ID' });
   }
-};
+
+  const product = new Product(req.body);
+  const savedProduct = await product.save();
+
+  res.status(201).json(savedProduct);
+});
 
 // PUT update product by ID
-const updateProduct = async (req, res) => {
-  const { name, category, quantity, description } = req.body;
+const updateProduct = asyncHandler(async (req, res) => {
+  const { error } = productValidationSchema.validate(req.body);
+  if (error) return res.status(400).json({ message: error.details[0].message });
 
-  try {
-    if (category) {
-      const categoryExists = await Category.findById(category);
-      if (!categoryExists) {
-        return res.status(400).json({ message: 'Invalid category ID' });
-      }
-    }
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      { name, category, quantity, description },
-      { new: true }
-    );
-
-    if (!updatedProduct) return res.status(404).json({ message: 'Product not found' });
-
-    res.json(updatedProduct);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+  const categoryExists = await Category.findById(req.body.category).lean();
+  if (!categoryExists) {
+    return res.status(400).json({ message: 'Invalid category ID' });
   }
-};
+
+  const updatedProduct = await Product.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    { new: true, runValidators: true }
+  ).lean();
+
+  if (!updatedProduct) return res.status(404).json({ message: 'Product not found' });
+
+  res.json(updatedProduct);
+});
 
 // DELETE product by ID
-const deleteProduct = async (req, res) => {
-  try {
-    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
-    if (!deletedProduct) return res.status(404).json({ message: 'Product not found' });
-    res.json({ message: 'Product deleted' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+const deleteProduct = asyncHandler(async (req, res) => {
+  const deletedProduct = await Product.findByIdAndDelete(req.params.id).lean();
+
+  if (!deletedProduct) return res.status(404).json({ message: 'Product not found' });
+
+  res.json({ message: 'Product deleted' });
+});
 
 module.exports = {
   getAllProducts,
