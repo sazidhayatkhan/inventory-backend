@@ -9,6 +9,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const faqRoutes = require('./routes/faqRoutes'); 
 const supplierRoutes = require('./routes/supplierRoutes');
 const sctockRoutes = require('./routes/stockRoutes')
+const salesOrderRoutes = require('./routes/salesOrderRoutes')
 
 const app = express();
 
@@ -23,7 +24,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/supplier',supplierRoutes)
 app.use('/api/faqs', faqRoutes);
-app.use('/api/stock-movement',sctockRoutes)
+app.use('/api/stock-movement',sctockRoutes);
+app.use('/api/sales-order',salesOrderRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
